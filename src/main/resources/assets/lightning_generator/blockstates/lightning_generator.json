@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "lightning_generator:block/lightning_generator", "y": 0 },
+    "facing=south": { "model": "lightning_generator:block/lightning_generator", "y": 180 },
+    "facing=east": { "model": "lightning_generator:block/lightning_generator", "y": 90 },
+    "facing=west": { "model": "lightning_generator:block/lightning_generator", "y": 270 }
+  }
+}

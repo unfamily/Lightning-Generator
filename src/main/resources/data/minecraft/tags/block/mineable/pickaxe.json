@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "lightning_generator:lightning_generator",
+    "lightning_generator:high_power_lightning_rod"
+  ]
+}

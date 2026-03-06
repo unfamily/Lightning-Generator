@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/lightning_rod",
+  "textures": {
+    "texture": "lightning_generator:block/high_power_lightning_rod",
+    "particle": "lightning_generator:block/high_power_lightning_rod"
+  }
+}

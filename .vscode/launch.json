@@ -1,0 +1,93 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Client",
+      "presentation": {
+        "group": "Mod Development - lightning-generator",
+        "order": 0
+      },
+      "projectName": "lightning-generator",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/lightning-generator/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Data",
+      "presentation": {
+        "group": "Mod Development - lightning-generator",
+        "order": 1
+      },
+      "projectName": "lightning-generator",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/dataRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/dataRunVmArgs.txt",
+        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/lightning-generator/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "GameTestServer",
+      "presentation": {
+        "group": "Mod Development - lightning-generator",
+        "order": 2
+      },
+      "projectName": "lightning-generator",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/gameTestServerRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/lightning-generator/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Server",
+      "presentation": {
+        "group": "Mod Development - lightning-generator",
+        "order": 3
+      },
+      "projectName": "lightning-generator",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/lightning-generator/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}
