@@ -42,3 +42,4 @@ public class Config {
 
     static final ForgeConfigSpec SPEC = BUILDER.build();
 }
+
