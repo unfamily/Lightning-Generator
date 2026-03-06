@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["ABA", "ACA", "ABA"],
+  "key": {
+    "A": { "tag": "c:ingots/copper" },
+    "B": { "tag": "c:ingots/gold" },
+    "C": { "item": "minecraft:comparator" }
+  },
+  "result": { "id": "lightning_generator:lightning_generator", "count": 1 }
+}
