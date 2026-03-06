@@ -1,9 +1,10 @@
 {
   "required": true,
   "package": "net.unfamily.lightning_generator.integration.iceandfire.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "DragonBaseEntityMixin"
+    "DragonBaseEntityMixinCE",
+    "DragonBaseEntityMixinOG"
   ],
   "client": [],
   "server": []

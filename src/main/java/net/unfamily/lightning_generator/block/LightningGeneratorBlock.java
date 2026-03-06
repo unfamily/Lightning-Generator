@@ -1,6 +1,5 @@
 package net.unfamily.lightning_generator.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -24,16 +23,10 @@ import net.unfamily.lightning_generator.blockentity.ModBlockEntities;
 public class LightningGeneratorBlock extends BaseEntityBlock {
 
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
-    public static final MapCodec<LightningGeneratorBlock> CODEC = simpleCodec(LightningGeneratorBlock::new);
 
     public LightningGeneratorBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
-    }
-
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
     }
 
     @Override

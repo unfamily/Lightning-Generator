@@ -2,7 +2,6 @@ package net.unfamily.lightning_generator.blockentity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
@@ -13,13 +12,17 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.energy.EnergyStorage;
-import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.energy.EnergyStorage;
+import net.minecraftforge.energy.IEnergyStorage;
 import net.unfamily.lightning_generator.Config;
 import net.unfamily.lightning_generator.block.LightningGeneratorBlock;
 import net.unfamily.lightning_generator.block.ModBlocks;
 import net.unfamily.lightning_generator.integration.iceandfire.DragonLureCallbackHolder;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -35,6 +38,7 @@ public class LightningGeneratorBlockEntity extends BlockEntity {
     private static final String TAG_TIMER = "AutoLightningTimer";
 
     private final LightningGeneratorEnergyStorage energyStorage;
+    private final LazyOptional<IEnergyStorage> energyCap;
     private int autoLightningTimer;
     private final Set<UUID> processedBoltIds = new HashSet<>();
 
@@ -43,7 +47,23 @@ public class LightningGeneratorBlockEntity extends BlockEntity {
         int capacity = Config.LIGHTNING_GENERATOR_CAPACITY.get();
         int maxExtract = Config.LIGHTNING_GENERATOR_MAX_EXTRACT.get();
         this.energyStorage = new LightningGeneratorEnergyStorage(capacity, maxExtract);
+        this.energyCap = LazyOptional.of(() -> new OutputOnlyEnergyWrapper(energyStorage));
         this.autoLightningTimer = randomInterval(Config.LIGHTNING_GENERATOR_RAIN_INTERVAL_MIN.get(), Config.LIGHTNING_GENERATOR_RAIN_INTERVAL_MAX.get());
+    }
+
+    @Override
+    public @NotNull <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {
+        if (cap == ForgeCapabilities.ENERGY
+                && side == getBlockState().getValue(LightningGeneratorBlock.FACING)) {
+            return energyCap.cast();
+        }
+        return super.getCapability(cap, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        energyCap.invalidate();
     }
 
     public void tick() {
@@ -97,16 +117,20 @@ public class LightningGeneratorBlockEntity extends BlockEntity {
         // Push energy to front face
         Direction front = getBlockState().getValue(LightningGeneratorBlock.FACING);
         BlockPos frontPos = worldPosition.relative(front);
-        IEnergyStorage neighbor = level.getCapability(Capabilities.EnergyStorage.BLOCK, frontPos, front.getOpposite());
-        if (neighbor != null && neighbor.canReceive()) {
-            int toSend = Math.min(Config.LIGHTNING_GENERATOR_MAX_EXTRACT.get(), energyStorage.getEnergyStored());
-            if (toSend > 0) {
-                int received = neighbor.receiveEnergy(toSend, false);
-                if (received > 0) {
-                    energyStorage.extractEnergy(received, false);
-                    setChanged();
+        BlockEntity neighbor = level.getBlockEntity(frontPos);
+        if (neighbor != null) {
+            neighbor.getCapability(ForgeCapabilities.ENERGY, front.getOpposite()).ifPresent(es -> {
+                if (es.canReceive()) {
+                    int toSend = Math.min(Config.LIGHTNING_GENERATOR_MAX_EXTRACT.get(), energyStorage.getEnergyStored());
+                    if (toSend > 0) {
+                        int received = es.receiveEnergy(toSend, false);
+                        if (received > 0) {
+                            energyStorage.extractEnergy(received, false);
+                            setChanged();
+                        }
+                    }
                 }
-            }
+            });
         }
     }
 
@@ -131,24 +155,20 @@ public class LightningGeneratorBlockEntity extends BlockEntity {
         return energyStorage.receiveEnergyInternal(maxReceive);
     }
 
-    public IEnergyStorage getEnergyStorageForCapability() {
-        return new OutputOnlyEnergyWrapper(energyStorage);
-    }
-
     public IEnergyStorage getEnergyStorage() {
         return energyStorage;
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
         tag.putInt(TAG_ENERGY, energyStorage.getEnergyStored());
         tag.putInt(TAG_TIMER, autoLightningTimer);
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
+    public void load(CompoundTag tag) {
+        super.load(tag);
         energyStorage.setEnergy(tag.getInt(TAG_ENERGY));
         autoLightningTimer = tag.getInt(TAG_TIMER);
         processedBoltIds.clear();
