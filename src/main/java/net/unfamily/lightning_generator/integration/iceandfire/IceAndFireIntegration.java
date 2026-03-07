@@ -145,27 +145,8 @@ public final class IceAndFireIntegration {
     }
 
     private static void handleOGDamageEvent(Object event) {
-        try {
-            double x = ((Number) event.getClass().getMethod("getTargetX").invoke(event)).doubleValue();
-            double y = ((Number) event.getClass().getMethod("getTargetY").invoke(event)).doubleValue();
-            double z = ((Number) event.getClass().getMethod("getTargetZ").invoke(event)).doubleValue();
-
-            Object dragon = event.getClass().getMethod("getDragon").invoke(event);
-            Level level = (Level) dragon.getClass().getMethod("level").invoke(dragon);
-            if (level == null) return;
-
-            BlockPos center = BlockPos.containing((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z));
-            for (BlockPos p : BlockPos.betweenClosed(center.offset(-3, -3, -3), center.offset(3, 3, 3))) {
-                if (level.getBlockState(p).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())
-                        && level.getBlockEntity(p.below()) instanceof LightningGeneratorBlockEntity) {
-                    // Cancel the event to protect our blocks
-                    event.getClass().getMethod("setCanceled", boolean.class).invoke(event, true);
-                    return;
-                }
-            }
-        } catch (Throwable t) {
-            LightningGeneratorMod.LOGGER.trace("IaF OG DamageEvent handler: {}", t.getMessage());
-        }
+        // Not cancelling: cancelling this event prevents destroyAreaBreath from running entirely,
+        // which would block all lightning effects. The lightning dragon does not destroy our custom blocks.
     }
 
     // =========================================================================
@@ -211,25 +192,8 @@ public final class IceAndFireIntegration {
     private static final class CeDamageBlockHandler implements InvocationHandler {
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) {
-            if (!"onDamageBlock".equals(method.getName()) || args == null || args.length < 4)
-                return false;
-            try {
-                double x = ((Number) args[1]).doubleValue();
-                double y = ((Number) args[2]).doubleValue();
-                double z = ((Number) args[3]).doubleValue();
-                Level level = getEntityLevel(args[0]);
-                if (level == null) return false;
-
-                BlockPos center = BlockPos.containing((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z));
-                for (BlockPos p : BlockPos.betweenClosed(center.offset(-3, -3, -3), center.offset(3, 3, 3))) {
-                    if (level.getBlockState(p).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())
-                            && level.getBlockEntity(p.below()) instanceof LightningGeneratorBlockEntity) {
-                        return true;
-                    }
-                }
-            } catch (Throwable t) {
-                LightningGeneratorMod.LOGGER.trace("IaF CE DamageBlockHandler: {}", t.getMessage());
-            }
+            // Not cancelling: returning true here cancels destroyAreaBreath entirely,
+            // which blocks all lightning effects. The lightning dragon does not destroy our custom blocks.
             return false;
         }
     }

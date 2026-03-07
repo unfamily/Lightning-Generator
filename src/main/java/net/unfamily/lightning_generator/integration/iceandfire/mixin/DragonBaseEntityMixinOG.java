@@ -18,6 +18,11 @@ import java.lang.reflect.Method;
 /**
  * Mixin for Ice and Fire Original (com.github.alexthe666.iceandfire).
  * Makes the high-power lightning rod a valid burn target for lightning dragons.
+ *
+ * Key fix: ci.cancel() is called immediately after verifying the rod is present,
+ * BEFORE distance/LOS checks. This prevents the original updateBurnTarget from
+ * ever clearing burningTarget, which would trigger the stopping-check and reset
+ * fireTicks to 0 before burnProgress reaches 40.
  */
 @Pseudo
 @Mixin(targets = "com.github.alexthe666.iceandfire.entity.EntityDragonBase")
@@ -46,6 +51,18 @@ public abstract class DragonBaseEntityMixinOG {
             if (!level.getBlockState(pos).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())) return;
             if (!(level.getBlockEntity(pos.below()) instanceof LightningGeneratorBlockEntity)) return;
 
+            // Cancel BEFORE distance/LOS checks so the original never clears burningTarget.
+            // If the original cleared it and fireTicks > stage*25, the stopping-check resets
+            // fireTicks to 0 and setBreathingFire(false), preventing burnProgress from reaching 40.
+            ci.cancel();
+
+            // Skip breathing if dragon is in an invalid state
+            try {
+                boolean modelDead = (Boolean) this.getClass().getMethod("isModelDead").invoke(this);
+                if (modelDead) return;
+            } catch (Throwable ignored) {}
+            if (mob.isSleeping()) return;
+
             float maxDist = 115F * ((Number) this.getClass().getMethod("getDragonStage").invoke(this)).floatValue();
             double cx = tx + 0.5, cy = ty + 0.5, cz = tz + 0.5;
             if (mob.distanceToSqr(cx, cy, cz) >= maxDist) return;
@@ -63,26 +80,9 @@ public abstract class DragonBaseEntityMixinOG {
             } else {
                 this.getClass().getMethod("setBreathingFire", boolean.class).invoke(this, true);
             }
-
-            // S2C broadcast — Original uses IceAndFire.sendMSGToAll(MessageDragonSetBurnBlock)
-            try {
-                Class<?> msgClass = Class.forName(
-                        "com.github.alexthe666.iceandfire.message.MessageDragonSetBurnBlock");
-                Object msg = msgClass
-                        .getConstructor(int.class, boolean.class, BlockPos.class)
-                        .newInstance(mob.getId(), true, pos);
-                Class<?> iceAndFireClass = Class.forName("com.github.alexthe666.iceandfire.IceAndFire");
-                for (Method m : iceAndFireClass.getMethods()) {
-                    if ("sendMSGToAll".equals(m.getName()) && m.getParameterCount() == 1) {
-                        m.invoke(null, msg);
-                        break;
-                    }
-                }
-            } catch (Throwable t2) {
-                LightningGeneratorMod.LOGGER.trace("DragonBaseEntityMixinOG S2C: {}", t2.getMessage());
-            }
-
-            ci.cancel();
+            // Sync burn target and breathing state to clients so they render lightning/particles.
+            // IaF normally sends this in updateBurnTarget's else branch; we cancel that path.
+            sendDragonSetBurnBlockToClients(mob, pos);
         } catch (Throwable t) {
             LightningGeneratorMod.LOGGER.trace("DragonBaseEntityMixinOG: {}", t.getMessage());
         }
@@ -116,5 +116,19 @@ public abstract class DragonBaseEntityMixinOG {
             }
         }
         return null;
+    }
+
+    /** Sends IaF MessageDragonSetBurnBlock so clients have burningTarget + breathingFire for rendering. */
+    private static void sendDragonSetBurnBlockToClients(Mob dragon, BlockPos pos) {
+        try {
+            Class<?> msgClass = Class.forName("com.github.alexthe666.iceandfire.message.MessageDragonSetBurnBlock");
+            Object message = msgClass.getConstructor(int.class, boolean.class, BlockPos.class)
+                    .newInstance(dragon.getId(), true, pos);
+            Class.forName("com.github.alexthe666.iceandfire.IceAndFire")
+                    .getMethod("sendMSGToAll", Object.class)
+                    .invoke(null, message);
+        } catch (Throwable t) {
+            LightningGeneratorMod.LOGGER.trace("DragonBaseEntityMixinOG sendDragonSetBurnBlock: {}", t.getMessage());
+        }
     }
 }

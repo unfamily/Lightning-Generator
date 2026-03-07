@@ -8,115 +8,103 @@ import net.unfamily.lightning_generator.block.ModBlocks;
 import net.unfamily.lightning_generator.blockentity.LightningGeneratorBlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.lang.reflect.Method;
-
 /**
- * Mixin for Ice and Fire CE (com.iafenvoy.iceandfire).
+ * Mixin for Ice and Fire CE EntityDragonBase.
  * Makes the high-power lightning rod a valid burn target for lightning dragons.
+ *
+ * This mixin mirrors the native updateBurnTarget flow exactly:
+ *   lookAt → breathFireAtPos → setBreathingFire(true)
+ * letting IaF's own code handle stimulateFire → setHasLightningTarget → TrackedData sync.
+ * Energy generation is handled separately by CeFireBlockHandler (ON_DRAGON_FIRE_BLOCK event).
  */
 @Pseudo
 @Mixin(targets = "com.iafenvoy.iceandfire.entity.EntityDragonBase")
 public abstract class DragonBaseEntityMixinCE {
 
+    @Shadow(remap = false) public BlockPos burningTarget;
+
+    @Shadow(remap = false) public abstract void setBreathingFire(boolean breathing);
+    @Shadow(remap = false) public abstract int getDragonStage();
+    @Shadow(remap = false) public abstract boolean canPositionBeSeen(double x, double y, double z);
+    @Shadow(remap = false) public abstract boolean isModelDead();
+    @Shadow(remap = false) protected abstract void breathFireAtPos(BlockPos pos);
+
     @Inject(method = "updateBurnTarget", at = @At("HEAD"), cancellable = true, remap = false)
     private void lightningGenerator$acceptRodTarget(CallbackInfo ci) {
+        if (this.burningTarget == null) return;
+
         try {
-            Object burningTarget = this.getClass().getField("burningTarget").get(this);
-            if (burningTarget == null) return;
-
-            Object dragonType = this.getClass().getField("dragonType").get(this);
-            Object lightningType = Class.forName("com.iafenvoy.iceandfire.data.DragonType")
-                    .getField("LIGHTNING").get(null);
-            if (!java.util.Objects.equals(dragonType, lightningType)) return;
-
-            Mob mob = (Mob) (Object) this;
-            Level level = mob.level();
-            if (level.isClientSide()) return;
-
-            int tx = ((Number) burningTarget.getClass().getMethod("getX").invoke(burningTarget)).intValue();
-            int ty = ((Number) burningTarget.getClass().getMethod("getY").invoke(burningTarget)).intValue();
-            int tz = ((Number) burningTarget.getClass().getMethod("getZ").invoke(burningTarget)).intValue();
-            BlockPos pos = new BlockPos(tx, ty, tz);
-
-            if (!level.getBlockState(pos).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())) return;
-            if (!(level.getBlockEntity(pos.below()) instanceof LightningGeneratorBlockEntity)) return;
-
-            float maxDist = 115F * ((Number) this.getClass().getMethod("getDragonStage").invoke(this)).floatValue();
-            double cx = tx + 0.5, cy = ty + 0.5, cz = tz + 0.5;
-            if (mob.distanceToSqr(cx, cy, cz) >= maxDist) return;
-
-            if (!(Boolean) this.getClass()
-                    .getMethod("canPositionBeSeen", double.class, double.class, double.class)
-                    .invoke(this, cx, cy, cz)) return;
-
-            mob.getLookControl().setLookAt(cx, cy, cz, 180F, 180F);
-
-            Method breathMethod = findDeclaredMethod(this.getClass(), "breathFireAtPos", BlockPos.class);
-            if (breathMethod != null) {
-                breathMethod.setAccessible(true);
-                breathMethod.invoke(this, pos);
-            } else {
-                this.getClass().getMethod("setBreathingFire", boolean.class).invoke(this, true);
-            }
-
-            // S2C broadcast — CE uses StaticVariables identifier + PacketByteBuf
-            try {
-                Object identifier = Class.forName("com.iafenvoy.iceandfire.StaticVariables")
-                        .getField("DRAGON_SET_BURN_BLOCK").get(null);
-                Class<?> bufUtilsClass = Class.forName("com.iafenvoy.uranus.network.PacketBufferUtils");
-                Object buf = bufUtilsClass.getMethod("create").invoke(null);
-                buf.getClass().getMethod("writeInt", int.class).invoke(buf, mob.getId());
-                buf.getClass().getMethod("writeBoolean", boolean.class).invoke(buf, true);
-                buf.getClass().getMethod("writeBlockPos", BlockPos.class).invoke(buf, pos);
-                Class<?> serverHelperClass = Class.forName("com.iafenvoy.uranus.ServerHelper");
-                for (Method m : serverHelperClass.getMethods()) {
-                    if ("sendToAll".equals(m.getName()) && m.getParameterCount() == 2) {
-                        m.invoke(null, identifier, buf);
-                        break;
-                    }
-                }
-            } catch (Throwable t2) {
-                LightningGeneratorMod.LOGGER.trace("DragonBaseEntityMixinCE S2C: {}", t2.getMessage());
-            }
-
-            ci.cancel();
-        } catch (Throwable t) {
-            LightningGeneratorMod.LOGGER.trace("DragonBaseEntityMixinCE: {}", t.getMessage());
+            if (!Class.forName("com.iafenvoy.iceandfire.entity.EntityLightningDragon")
+                    .isInstance(this)) return;
+        } catch (ClassNotFoundException e) {
+            return;
         }
+
+        Mob mob = (Mob) (Object) this;
+        Level level = mob.level();
+        if (level.isClientSide()) return;
+
+        BlockPos pos = this.burningTarget;
+        if (!level.getBlockState(pos).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())) return;
+        if (!(level.getBlockEntity(pos.below()) instanceof LightningGeneratorBlockEntity)) return;
+
+        // Cancel BEFORE distance/LOS checks so native code never clears burningTarget
+        ci.cancel();
+
+        if (this.isModelDead()) return;
+        if (mob.isSleeping()) return;
+        if (mob.isBaby()) return;
+
+        float maxDist = 115F * this.getDragonStage();
+        double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
+        if (mob.distanceToSqr(cx, cy, cz) >= maxDist) return;
+        if (!this.canPositionBeSeen(cx, cy, cz)) return;
+
+        mob.getLookControl().setLookAt(cx, cy, cz, 180F, 180F);
+
+        // Exact same calls as native updateBurnTarget for a valid forge:
+        // breathFireAtPos → stimulateFire → setHasLightningTarget / setLightningTargetVec
+        this.breathFireAtPos(pos);
+        this.setBreathingFire(true);
+
+        sendDragonSetBurnBlockToClientsCE(mob, pos);
     }
 
     @Inject(method = "isFuelingForge", at = @At("RETURN"), cancellable = true, remap = false)
     private void lightningGenerator$rodCountsAsForge(CallbackInfoReturnable<Boolean> cir) {
         if (Boolean.TRUE.equals(cir.getReturnValue())) return;
-        try {
-            Object burningTarget = this.getClass().getField("burningTarget").get(this);
-            if (burningTarget == null) return;
-            int tx = ((Number) burningTarget.getClass().getMethod("getX").invoke(burningTarget)).intValue();
-            int ty = ((Number) burningTarget.getClass().getMethod("getY").invoke(burningTarget)).intValue();
-            int tz = ((Number) burningTarget.getClass().getMethod("getZ").invoke(burningTarget)).intValue();
-            Mob mob = (Mob) (Object) this;
-            BlockPos pos = new BlockPos(tx, ty, tz);
-            if (mob.level().getBlockState(pos).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())
-                    && mob.level().getBlockEntity(pos.below()) instanceof LightningGeneratorBlockEntity) {
-                cir.setReturnValue(true);
-            }
-        } catch (Throwable ignored) {}
+        if (this.burningTarget == null) return;
+        Mob mob = (Mob) (Object) this;
+        if (mob.level().getBlockState(this.burningTarget).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())
+                && mob.level().getBlockEntity(this.burningTarget.below()) instanceof LightningGeneratorBlockEntity) {
+            cir.setReturnValue(true);
+        }
     }
 
-    private static Method findDeclaredMethod(Class<?> clazz, String name, Class<?>... params) {
-        Class<?> c = clazz;
-        while (c != null && c != Object.class) {
-            try {
-                return c.getDeclaredMethod(name, params);
-            } catch (NoSuchMethodException ignored) {
-                c = c.getSuperclass();
+    private static void sendDragonSetBurnBlockToClientsCE(Mob dragon, BlockPos pos) {
+        try {
+            Object buf = Class.forName("com.iafenvoy.uranus.network.PacketBufferUtils")
+                    .getMethod("create").invoke(null);
+            buf.getClass().getMethod("writeInt", int.class).invoke(buf, dragon.getId());
+            buf.getClass().getMethod("writeBoolean", boolean.class).invoke(buf, true);
+            buf.getClass().getMethod("writeBlockPos", BlockPos.class).invoke(buf, pos);
+            Object channel = Class.forName("com.iafenvoy.iceandfire.StaticVariables")
+                    .getField("DRAGON_SET_BURN_BLOCK").get(null);
+            Class<?> serverHelper = Class.forName("com.iafenvoy.uranus.ServerHelper");
+            for (java.lang.reflect.Method m : serverHelper.getMethods()) {
+                if ("sendToAll".equals(m.getName()) && m.getParameterCount() == 2) {
+                    m.invoke(null, channel, buf);
+                    return;
+                }
             }
+        } catch (Throwable t) {
+            LightningGeneratorMod.LOGGER.warn("sendDragonSetBurnBlockToClientsCE: {}", t.getMessage());
         }
-        return null;
     }
 }
