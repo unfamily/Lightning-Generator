@@ -33,7 +33,7 @@ public class Config {
             .comment("Max ticks between auto-lightning in thunderstorm. 100 = 5s. Default: 100")
             .defineInRange("041_thunder_interval_max", 100, 10, 600);
     public static final ForgeConfigSpec.IntValue LIGHTNING_GENERATOR_DRAGON_RF = BUILDER
-            .comment("RF produced when a Lightning Dragon (Ice and Fire) strikes the high-power lightning rod. Same tier as dragon forge. Default: 1000")
+            .comment("RF per tick when a Lightning Dragon (Ice and Fire) breathes on the high-power lightning rod. Default: 1000")
             .defineInRange("050_dragon_rf", 1000, 1, 1000000);
 
     static {

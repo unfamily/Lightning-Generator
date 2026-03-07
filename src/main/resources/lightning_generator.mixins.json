@@ -1,7 +1,9 @@
 {
   "required": true,
+  "minVersion": "0.8",
   "package": "net.unfamily.lightning_generator.integration.iceandfire.mixin",
   "compatibilityLevel": "JAVA_17",
+  "refmap": "lightning_generator.refmap.json",
   "mixins": [
     "DragonBaseEntityMixinCE",
     "DragonBaseEntityMixinOG"

@@ -15,7 +15,6 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.energy.EnergyStorage;
 import net.minecraftforge.energy.IEnergyStorage;
 import net.unfamily.lightning_generator.Config;
 import net.unfamily.lightning_generator.block.LightningGeneratorBlock;
@@ -100,9 +99,7 @@ public class LightningGeneratorBlockEntity extends BlockEntity {
                 autoLightningTimer--;
                 if (autoLightningTimer <= 0) {
                     spawnLightningAt(above);
-                    int rfPerStrike = Config.LIGHTNING_GENERATOR_RF_PER_STRIKE.get();
-                    int added = energyStorage.receiveEnergyInternal(rfPerStrike);
-                    if (added > 0) setChanged();
+                    // Energy is added once by the bolt-detection block above when the spawned bolt is found
                     if (thunder) {
                         autoLightningTimer = randomInterval(Config.LIGHTNING_GENERATOR_THUNDER_INTERVAL_MIN.get(), Config.LIGHTNING_GENERATOR_THUNDER_INTERVAL_MAX.get());
                     } else {
@@ -114,23 +111,26 @@ public class LightningGeneratorBlockEntity extends BlockEntity {
             }
         }
 
-        // Push energy to front face
+        // Push energy to front face (use current stored once so add/extract in same tick stay consistent)
         Direction front = getBlockState().getValue(LightningGeneratorBlock.FACING);
         BlockPos frontPos = worldPosition.relative(front);
         BlockEntity neighbor = level.getBlockEntity(frontPos);
         if (neighbor != null) {
-            neighbor.getCapability(ForgeCapabilities.ENERGY, front.getOpposite()).ifPresent(es -> {
-                if (es.canReceive()) {
-                    int toSend = Math.min(Config.LIGHTNING_GENERATOR_MAX_EXTRACT.get(), energyStorage.getEnergyStored());
-                    if (toSend > 0) {
-                        int received = es.receiveEnergy(toSend, false);
-                        if (received > 0) {
-                            energyStorage.extractEnergy(received, false);
-                            setChanged();
+            int stored = energyStorage.getEnergyStored();
+            if (stored > 0) {
+                neighbor.getCapability(ForgeCapabilities.ENERGY, front.getOpposite()).ifPresent(es -> {
+                    if (es.canReceive()) {
+                        int toSend = Math.min(Config.LIGHTNING_GENERATOR_MAX_EXTRACT.get(), stored);
+                        if (toSend > 0) {
+                            int received = es.receiveEnergy(toSend, false);
+                            if (received > 0) {
+                                energyStorage.extractEnergy(received, false);
+                                setChanged();
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
         }
     }
 
@@ -152,7 +152,7 @@ public class LightningGeneratorBlockEntity extends BlockEntity {
 
     /** Called by Ice and Fire integration when a lightning dragon strikes the rod/generator. Returns RF actually added. */
     public int receiveDragonStrikeEnergy(int maxReceive) {
-        return energyStorage.receiveEnergyInternal(maxReceive);
+        return energyStorage.addEnergyDirect(maxReceive);
     }
 
     public IEnergyStorage getEnergyStorage() {
@@ -174,19 +174,70 @@ public class LightningGeneratorBlockEntity extends BlockEntity {
         processedBoltIds.clear();
     }
 
-    private static final class LightningGeneratorEnergyStorage extends EnergyStorage {
+    /** Own storage implementation: no Forge EnergyStorage parent, so nothing can cap receive/extract to 1. */
+    private static final class LightningGeneratorEnergyStorage implements IEnergyStorage {
+        private int energy;
+        private final int capacity;
+        private final int maxExtract;
+
         LightningGeneratorEnergyStorage(int capacity, int maxExtract) {
-            super(capacity, 0, maxExtract);
+            this.capacity = capacity;
+            this.maxExtract = Math.max(1, maxExtract);
+            this.energy = 0;
         }
 
-        void setEnergy(int energy) {
-            this.energy = Math.max(0, Math.min(energy, capacity));
+        void setEnergy(int value) {
+            this.energy = Math.max(0, Math.min(value, capacity));
+        }
+
+        int addEnergyDirect(int amount) {
+            if (amount <= 0) return 0;
+            int space = capacity - energy;
+            int toAdd = Math.min(space, amount);
+            energy += toAdd;
+            return toAdd;
         }
 
         int receiveEnergyInternal(int maxReceive) {
-            int received = Math.min(capacity - energy, Math.max(0, maxReceive));
-            energy += received;
-            return received;
+            if (maxReceive <= 0) return 0;
+            int space = capacity - energy;
+            int toAdd = Math.min(space, maxReceive);
+            energy += toAdd;
+            return toAdd;
+        }
+
+        @Override
+        public int receiveEnergy(int maxReceive, boolean simulate) {
+            return 0;
+        }
+
+        @Override
+        public int extractEnergy(int maxExtract, boolean simulate) {
+            int toExtract = Math.min(energy, Math.min(this.maxExtract, maxExtract));
+            if (!simulate && toExtract > 0) {
+                energy -= toExtract;
+            }
+            return toExtract;
+        }
+
+        @Override
+        public int getEnergyStored() {
+            return energy;
+        }
+
+        @Override
+        public int getMaxEnergyStored() {
+            return capacity;
+        }
+
+        @Override
+        public boolean canExtract() {
+            return maxExtract > 0;
+        }
+
+        @Override
+        public boolean canReceive() {
+            return false;
         }
     }
 

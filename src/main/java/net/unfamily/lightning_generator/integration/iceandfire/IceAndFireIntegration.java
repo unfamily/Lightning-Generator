@@ -119,29 +119,45 @@ public final class IceAndFireIntegration {
 
     private static void handleOGFireEvent(Object event) {
         try {
-            Object dragon = event.getClass().getMethod("getDragon").invoke(event);
-            if (!isOGLightningDragon(dragon)) return;
+            Object dragon = invokeParamLess(event.getClass(), event, "getDragon");
+            if (dragon == null || !isOGLightningDragon(dragon)) return;
 
-            double x = ((Number) event.getClass().getMethod("getTargetX").invoke(event)).doubleValue();
-            double y = ((Number) event.getClass().getMethod("getTargetY").invoke(event)).doubleValue();
-            double z = ((Number) event.getClass().getMethod("getTargetZ").invoke(event)).doubleValue();
+            Double x = invokeDoubleGetter(event.getClass(), event, "getTargetX");
+            Double y = invokeDoubleGetter(event.getClass(), event, "getTargetY");
+            Double z = invokeDoubleGetter(event.getClass(), event, "getTargetZ");
+            if (x == null || y == null || z == null) return;
 
-            Level level = (Level) dragon.getClass().getMethod("level").invoke(dragon);
+            Level level = dragon instanceof Entity e ? e.level() : null;
             if (level == null || level.isClientSide()) return;
 
             BlockPos rodPos = BlockPos.containing(x, y, z);
             if (!level.getBlockState(rodPos).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())) return;
             if (!(level.getBlockEntity(rodPos.below()) instanceof LightningGeneratorBlockEntity gen)) return;
 
-            double burnProgress = ((Number) dragon.getClass().getField("burnProgress").get(dragon)).doubleValue();
-            if (burnProgress < 40) return;
-
             int rf = Config.LIGHTNING_GENERATOR_DRAGON_RF.get();
+            if (rf <= 1) rf = 1000;
             int added = gen.receiveDragonStrikeEnergy(rf);
             if (added > 0) gen.setChanged();
         } catch (Throwable t) {
             LightningGeneratorMod.LOGGER.trace("IaF OG FireEvent handler: {}", t.getMessage());
         }
+    }
+
+    private static Object invokeParamLess(Class<?> clazz, Object target, String methodName) {
+        try {
+            for (Method m : clazz.getMethods()) {
+                if (methodName.equals(m.getName()) && m.getParameterCount() == 0) {
+                    return m.invoke(target);
+                }
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private static Double invokeDoubleGetter(Class<?> clazz, Object target, String methodName) {
+        Object o = invokeParamLess(clazz, target, methodName);
+        if (o instanceof Number n) return n.doubleValue();
+        return null;
     }
 
     private static void handleOGDamageEvent(Object event) {
@@ -170,20 +186,19 @@ public final class IceAndFireIntegration {
                 if (level == null || level.isClientSide()) return false;
 
                 BlockPos rodPos = BlockPos.containing(x, y, z);
+
                 if (!level.getBlockState(rodPos).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())) return false;
                 if (!(level.getBlockEntity(rodPos.below()) instanceof LightningGeneratorBlockEntity gen))
                     return false;
 
-                double burnProgress = ((Number) dragon.getClass().getField("burnProgress").get(dragon)).doubleValue();
-                if (burnProgress < 40) return false;
-
                 int rf = Config.LIGHTNING_GENERATOR_DRAGON_RF.get();
+                if (rf <= 1) rf = 1000;
                 int added = gen.receiveDragonStrikeEnergy(rf);
                 if (added > 0) gen.setChanged();
 
                 return false;
             } catch (Throwable t) {
-                LightningGeneratorMod.LOGGER.trace("IaF CE FireBlockHandler: {}", t.getMessage());
+                LightningGeneratorMod.LOGGER.warn("IaF CE FireBlockHandler: {}", t.getMessage());
                 return false;
             }
         }
@@ -223,6 +238,7 @@ public final class IceAndFireIntegration {
                     if (!dragonSelected) {
                         dragon.getClass().getField("burningTarget").set(dragon, rodPos);
                         dragonSelected = true;
+                        LightningGeneratorMod.LOGGER.info("[LG-CE] LureCE: set burningTarget={} on entity={}", rodPos, ((Entity) dragon).getId());
                     } else {
                         if (bt != null && equalsPos(bt, rodPos)) {
                             dragon.getClass().getField("burningTarget").set(dragon, null);
@@ -231,7 +247,7 @@ public final class IceAndFireIntegration {
                     }
                 }
             } catch (Throwable t) {
-                LightningGeneratorMod.LOGGER.trace("IaF CE lure: {}", t.getMessage());
+                LightningGeneratorMod.LOGGER.warn("[LG-CE] LureCE error: {}", t.getMessage());
             }
         }
     }

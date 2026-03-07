@@ -17,12 +17,10 @@ import java.lang.reflect.Method;
 
 /**
  * Mixin for Ice and Fire Original (com.github.alexthe666.iceandfire).
- * Makes the high-power lightning rod a valid burn target for lightning dragons.
- *
- * Key fix: ci.cancel() is called immediately after verifying the rod is present,
- * BEFORE distance/LOS checks. This prevents the original updateBurnTarget from
- * ever clearing burningTarget, which would trigger the stopping-check and reset
- * fireTicks to 0 before burnProgress reaches 40.
+ * Makes the high-power lightning rod + generator count as a valid "forge" target:
+ * we run the same code path as when the dragon targets a real dragon forge
+ * (lookAt → breathFireAtPos → setBreathingFire), so the dragon emits lightning.
+ * ci.cancel() is before distance/LOS so the original never clears burningTarget.
  */
 @Pseudo
 @Mixin(targets = "com.github.alexthe666.iceandfire.entity.EntityDragonBase")
@@ -34,6 +32,10 @@ public abstract class DragonBaseEntityMixinOG {
             Object burningTarget = this.getClass().getField("burningTarget").get(this);
             if (burningTarget == null) return;
 
+            // Use BlockPos directly: Lure sets our BlockPos; reflection getX/getY/getZ fails at runtime (obfuscated)
+            BlockPos pos = burningTarget instanceof BlockPos ? (BlockPos) burningTarget : null;
+            if (pos == null) return;
+
             Object dragonType = this.getClass().getField("dragonType").get(this);
             Object lightningType = Class.forName("com.github.alexthe666.iceandfire.entity.DragonType")
                     .getField("LIGHTNING").get(null);
@@ -42,11 +44,6 @@ public abstract class DragonBaseEntityMixinOG {
             Mob mob = (Mob) (Object) this;
             Level level = mob.level();
             if (level.isClientSide()) return;
-
-            int tx = ((Number) burningTarget.getClass().getMethod("getX").invoke(burningTarget)).intValue();
-            int ty = ((Number) burningTarget.getClass().getMethod("getY").invoke(burningTarget)).intValue();
-            int tz = ((Number) burningTarget.getClass().getMethod("getZ").invoke(burningTarget)).intValue();
-            BlockPos pos = new BlockPos(tx, ty, tz);
 
             if (!level.getBlockState(pos).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())) return;
             if (!(level.getBlockEntity(pos.below()) instanceof LightningGeneratorBlockEntity)) return;
@@ -64,7 +61,7 @@ public abstract class DragonBaseEntityMixinOG {
             if (mob.isSleeping()) return;
 
             float maxDist = 115F * ((Number) this.getClass().getMethod("getDragonStage").invoke(this)).floatValue();
-            double cx = tx + 0.5, cy = ty + 0.5, cz = tz + 0.5;
+            double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
             if (mob.distanceToSqr(cx, cy, cz) >= maxDist) return;
 
             if (!(Boolean) this.getClass()
@@ -73,13 +70,14 @@ public abstract class DragonBaseEntityMixinOG {
 
             mob.getLookControl().setLookAt(cx, cy, cz, 180F, 180F);
 
+            // Same as native forge path: breathFireAtPos then setBreathingFire(true)
             Method breathMethod = findDeclaredMethod(this.getClass(), "breathFireAtPos", BlockPos.class);
             if (breathMethod != null) {
                 breathMethod.setAccessible(true);
                 breathMethod.invoke(this, pos);
-            } else {
-                this.getClass().getMethod("setBreathingFire", boolean.class).invoke(this, true);
             }
+            this.getClass().getMethod("setBreathingFire", boolean.class).invoke(this, true);
+
             // Sync burn target and breathing state to clients so they render lightning/particles.
             // IaF normally sends this in updateBurnTarget's else branch; we cancel that path.
             sendDragonSetBurnBlockToClients(mob, pos);
@@ -92,13 +90,10 @@ public abstract class DragonBaseEntityMixinOG {
     private void lightningGenerator$rodCountsAsForge(CallbackInfoReturnable<Boolean> cir) {
         if (Boolean.TRUE.equals(cir.getReturnValue())) return;
         try {
-            Object burningTarget = this.getClass().getField("burningTarget").get(this);
-            if (burningTarget == null) return;
-            int tx = ((Number) burningTarget.getClass().getMethod("getX").invoke(burningTarget)).intValue();
-            int ty = ((Number) burningTarget.getClass().getMethod("getY").invoke(burningTarget)).intValue();
-            int tz = ((Number) burningTarget.getClass().getMethod("getZ").invoke(burningTarget)).intValue();
+            Object raw = this.getClass().getField("burningTarget").get(this);
+            if (raw == null || !(raw instanceof BlockPos)) return;
+            BlockPos pos = (BlockPos) raw;
             Mob mob = (Mob) (Object) this;
-            BlockPos pos = new BlockPos(tx, ty, tz);
             if (mob.level().getBlockState(pos).is(ModBlocks.HIGH_POWER_LIGHTNING_ROD.get())
                     && mob.level().getBlockEntity(pos.below()) instanceof LightningGeneratorBlockEntity) {
                 cir.setReturnValue(true);
