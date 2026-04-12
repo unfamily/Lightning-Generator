@@ -6,17 +6,17 @@
       "request": "launch",
       "name": "Client",
       "presentation": {
-        "group": "Mod Development - lightning-generator",
+        "group": "Mod Development - Lightning-Generator",
         "order": 0
       },
-      "projectName": "lightning-generator",
+      "projectName": "Lightning-Generator",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/clientRunProgramArgs.txt"
+        "@/home/unfamily/IdeaProjects/Lightning-Generator/build/moddev/clientRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/lightning-generator/bin/main"
+        "@/home/unfamily/IdeaProjects/Lightning-Generator/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/Lightning-Generator/bin/main"
       ],
       "cwd": "${workspaceFolder}/run",
       "env": {},
@@ -28,17 +28,17 @@
       "request": "launch",
       "name": "Data",
       "presentation": {
-        "group": "Mod Development - lightning-generator",
+        "group": "Mod Development - Lightning-Generator",
         "order": 1
       },
-      "projectName": "lightning-generator",
+      "projectName": "Lightning-Generator",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/dataRunProgramArgs.txt"
+        "@/home/unfamily/IdeaProjects/Lightning-Generator/build/moddev/dataRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/dataRunVmArgs.txt",
-        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/lightning-generator/bin/main"
+        "@/home/unfamily/IdeaProjects/Lightning-Generator/build/moddev/dataRunVmArgs.txt",
+        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/Lightning-Generator/bin/main"
       ],
       "cwd": "${workspaceFolder}/run",
       "env": {},
@@ -50,17 +50,17 @@
       "request": "launch",
       "name": "GameTestServer",
       "presentation": {
-        "group": "Mod Development - lightning-generator",
+        "group": "Mod Development - Lightning-Generator",
         "order": 2
       },
-      "projectName": "lightning-generator",
+      "projectName": "Lightning-Generator",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/gameTestServerRunProgramArgs.txt"
+        "@/home/unfamily/IdeaProjects/Lightning-Generator/build/moddev/gameTestServerRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/gameTestServerRunVmArgs.txt",
-        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/lightning-generator/bin/main"
+        "@/home/unfamily/IdeaProjects/Lightning-Generator/build/moddev/gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/Lightning-Generator/bin/main"
       ],
       "cwd": "${workspaceFolder}/run",
       "env": {},
@@ -72,17 +72,17 @@
       "request": "launch",
       "name": "Server",
       "presentation": {
-        "group": "Mod Development - lightning-generator",
+        "group": "Mod Development - Lightning-Generator",
         "order": 3
       },
-      "projectName": "lightning-generator",
+      "projectName": "Lightning-Generator",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/serverRunProgramArgs.txt"
+        "@/home/unfamily/IdeaProjects/Lightning-Generator/build/moddev/serverRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@/home/unfamily/IdeaProjects/lightning-generator/build/moddev/serverRunVmArgs.txt",
-        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/lightning-generator/bin/main"
+        "@/home/unfamily/IdeaProjects/Lightning-Generator/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dlightning_generator%%/home/unfamily/IdeaProjects/Lightning-Generator/bin/main"
       ],
       "cwd": "${workspaceFolder}/run",
       "env": {},
