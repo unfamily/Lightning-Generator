@@ -2,8 +2,11 @@
   "type": "minecraft:crafting_shaped",
   "pattern": [" A ", " B ", " A "],
   "key": {
-    "A": { "tag": "c:gems/diamond" },
+    "A": { "tag": "forge:gems/diamond" },
     "B": { "item": "minecraft:lightning_rod" }
   },
-  "result": { "id": "lightning_generator:high_power_lightning_rod", "count": 1 }
+  "result": {
+    "item": "lightning_generator:high_power_lightning_rod",
+    "count": 1
+  }
 }
